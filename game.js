@@ -13,13 +13,9 @@ let betAmount = 10;
 let cashedOut = false;
 let winAmount = 0;
 let autoCashOut = 0; // 0 = disabled
-let fakePlayers = [];
-let fakeNames = ["Alex", "Max", "Sam", "Joe", "Kim", "Leo", "Mia", "Zoe"];
-let chatBubbles = [];
-let chatMessages = ["Nice! 🔥", "GG!", "HODL!", "RIP 💀", "Let's go!", "Too early!", "Wow!", "😱", "🚀🚀🚀"];
 let speedLines = [];
 let confetti = [];
-let stats = { wins: 0, losses: 0, biggestWin: 0, totalProfit: 0 };
+let stats = { wins: 0, losses: 0, biggestWin: 0, totalProfit: 0, streak: 0 };
 let milestoneFlash = 0;
 let lastMilestone = 0;
 let soundEnabled = true;
@@ -82,6 +78,7 @@ function handleInput() {
         winAmount = betAmount * multiplier;
         balance += winAmount;
         stats.wins++;
+        stats.streak++;
         stats.totalProfit += winAmount - betAmount;
         if (winAmount > stats.biggestWin) stats.biggestWin = winAmount;
         spawnConfetti();
@@ -254,6 +251,7 @@ const bird = {
           winAmount = betAmount * multiplier;
           balance += winAmount;
           stats.wins++;
+          stats.streak++;
           stats.totalProfit += winAmount - betAmount;
           if (winAmount > stats.biggestWin) stats.biggestWin = winAmount;
           spawnConfetti();
@@ -263,23 +261,6 @@ const bird = {
             playTone(1500, 0.15);
           }
         }
-        
-        // Fake players cash out randomly
-        if (Math.random() < 0.02 && fakePlayers.length < 5) {
-          let name = fakeNames[Math.floor(Math.random() * fakeNames.length)];
-          let amt = (10 + Math.random() * 90).toFixed(0);
-          fakePlayers.push({ name, amt, mult: multiplier.toFixed(2), life: 80 });
-        }
-        fakePlayers.forEach(p => p.life--);
-        fakePlayers = fakePlayers.filter(p => p.life > 0);
-        
-        // Random chat bubbles
-        if (Math.random() < 0.01 && chatBubbles.length < 3) {
-          let msg = chatMessages[Math.floor(Math.random() * chatMessages.length)];
-          chatBubbles.push({ msg, x: 20 + Math.random() * 100, y: 150 + Math.random() * 100, life: 60 });
-        }
-        chatBubbles.forEach(c => c.life--);
-        chatBubbles = chatBubbles.filter(c => c.life > 0);
         
         // Rising tension sound
         if (soundEnabled && frames % 10 == 0) {
@@ -310,11 +291,14 @@ const bird = {
           if (roundHistory.length > 8) roundHistory.pop();
           if (!cashedOut) {
             stats.losses++;
+            stats.streak = 0;
             stats.totalProfit -= betAmount;
           }
           spawnParticles(this.x, this.y);
           shakeX = 10; shakeY = 10;
           if (soundEnabled) SFX.hit.play();
+          // Vibrate on mobile
+          if (navigator.vibrate) navigator.vibrate(200);
         }
         
         if (this.y < 120) this.y = 120;
@@ -544,8 +528,6 @@ function draw() {
   drawSpeedLines();
   drawParticles();
   drawBirdTrail();
-  drawFakePlayers();
-  drawChatBubbles();
   updateConfetti();
   drawConfetti();
   drawMilestoneFlash();
@@ -651,34 +633,6 @@ function drawBirdTrail() {
   sctx.shadowBlur = 0;
 }
 
-function drawFakePlayers() {
-  sctx.font = "10px Orbitron";
-  fakePlayers.forEach((p, i) => {
-    let alpha = p.life / 80;
-    sctx.fillStyle = `rgba(0, 255, 136, ${alpha})`;
-    sctx.textAlign = "left";
-    sctx.fillText(`${p.name} cashed $${p.amt} @ ${p.mult}x`, 10, scrn.height - 60 - i * 15);
-  });
-}
-
-function drawChatBubbles() {
-  sctx.font = "11px Orbitron";
-  chatBubbles.forEach(c => {
-    let alpha = c.life / 60;
-    sctx.fillStyle = `rgba(30, 35, 60, ${alpha * 0.9})`;
-    sctx.strokeStyle = `rgba(0, 170, 255, ${alpha})`;
-    sctx.lineWidth = 1;
-    let w = sctx.measureText(c.msg).width + 10;
-    sctx.beginPath();
-    sctx.roundRect(c.x, c.y - 12, w, 18, 5);
-    sctx.fill();
-    sctx.stroke();
-    sctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-    sctx.textAlign = "left";
-    sctx.fillText(c.msg, c.x + 5, c.y);
-  });
-}
-
 function drawSpeedLines() {
   if (state.curr != state.Play) return;
   let intensity = Math.min((multiplier - 1) * 0.5, 1);
@@ -742,7 +696,8 @@ function drawStats() {
   sctx.textAlign = "left";
   let winRate = stats.wins + stats.losses > 0 ? ((stats.wins / (stats.wins + stats.losses)) * 100).toFixed(0) : 0;
   sctx.fillText(`W:${stats.wins} L:${stats.losses} (${winRate}%)`, 10, scrn.height - 30);
-  sctx.fillText(`Best: $${stats.biggestWin.toFixed(0)} | P/L: $${stats.totalProfit.toFixed(0)}`, 10, scrn.height - 15);
+  let streakText = stats.streak > 0 ? ` | 🔥${stats.streak}` : "";
+  sctx.fillText(`Best: $${stats.biggestWin.toFixed(0)} | P/L: $${stats.totalProfit.toFixed(0)}${streakText}`, 10, scrn.height - 15);
 }
 
 function drawSoundToggle() {

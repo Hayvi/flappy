@@ -65,6 +65,12 @@
             text-align: center;
             margin-top: 5px;
         }
+        @media (max-height: 700px) {
+            #canvas { max-height: 60vh; width: auto; }
+        }
+        @media (max-width: 320px) {
+            .btn { padding: 8px 10px; font-size: 10px; min-width: 40px; }
+        }
     </style>
 </head>
 <body>
@@ -88,6 +94,7 @@
         <div id="auto-display">AUTO: OFF</div>
         <div id="controls">
             <button class="btn btn-sound" onclick="toggleSound()">🔊 SOUND</button>
+            <button class="btn" onclick="toggleFullscreen()">⛶ FULL</button>
         </div>
     </div>
     <script src="game.js"></script>
@@ -116,6 +123,13 @@
             document.getElementById('bet-display').textContent = 'BET: $' + betAmount;
             document.getElementById('auto-display').textContent = 'AUTO: ' + (autoCashOut > 0 ? autoCashOut.toFixed(1) + 'x' : 'OFF');
             document.querySelector('.btn-sound').textContent = (soundEnabled ? '🔊' : '🔇') + ' SOUND';
+        }
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
         }
         setInterval(updateDisplays, 100);
     </script>
