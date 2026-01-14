@@ -15,6 +15,12 @@ let winAmount = 0;
 let autoCashOut = 0; // 0 = disabled
 let fakePlayers = [];
 let fakeNames = ["Alex", "Max", "Sam", "Joe", "Kim", "Leo", "Mia", "Zoe"];
+let speedLines = [];
+let confetti = [];
+let stats = { wins: 0, losses: 0, biggestWin: 0, totalProfit: 0 };
+let milestoneFlash = 0;
+let lastMilestone = 0;
+let soundEnabled = true;
 
 // Generate stars
 for (let i = 0; i < 50; i++) {
@@ -65,6 +71,7 @@ function handleInput() {
         trajectoryPoints = [];
         particles = [];
         birdTrail = [];
+        lastMilestone = 0;
       }
       break;
     case state.Play:
@@ -72,9 +79,15 @@ function handleInput() {
         cashedOut = true;
         winAmount = betAmount * multiplier;
         balance += winAmount;
-        playTone(1000, 0.1);
-        playTone(1200, 0.1);
-        playTone(1500, 0.15);
+        stats.wins++;
+        stats.totalProfit += winAmount - betAmount;
+        if (winAmount > stats.biggestWin) stats.biggestWin = winAmount;
+        spawnConfetti();
+        if (soundEnabled) {
+          playTone(1000, 0.1);
+          playTone(1200, 0.1);
+          playTone(1500, 0.15);
+        }
       }
       break;
     case state.gameOver:
@@ -97,9 +110,11 @@ scrn.addEventListener("click", handleInput);
 scrn.addEventListener("touchstart", (e) => { e.preventDefault(); handleInput(); });
 
 scrn.onkeydown = function keyDown(e) {
-  if (e.keyCode == 32 || e.keyCode == 87 || e.keyCode == 38) {
+  if (e.keyCode == 32 || e.keyCode == 87) {
     handleInput();
   }
+  // M key to toggle sound
+  if (e.keyCode == 77) soundEnabled = !soundEnabled;
   // Bet controls (only in getReady state)
   if (state.curr == state.getReady) {
     if (e.keyCode == 37) betAmount = Math.max(10, betAmount - 10); // Left
@@ -210,14 +225,30 @@ const bird = {
         multiplier += 0.01;
         displayMultiplier += (multiplier - displayMultiplier) * 0.2;
         
+        // Milestone flash at 1.5x, 2x, 2.5x
+        let milestones = [1.5, 2.0, 2.5];
+        milestones.forEach(m => {
+          if (multiplier >= m && lastMilestone < m) {
+            milestoneFlash = 15;
+            lastMilestone = m;
+            if (soundEnabled) playTone(600 + m * 200, 0.15);
+          }
+        });
+        
         // Auto cash out
         if (autoCashOut > 0 && multiplier >= autoCashOut && !cashedOut) {
           cashedOut = true;
           winAmount = betAmount * multiplier;
           balance += winAmount;
-          playTone(1000, 0.1);
-          playTone(1200, 0.1);
-          playTone(1500, 0.15);
+          stats.wins++;
+          stats.totalProfit += winAmount - betAmount;
+          if (winAmount > stats.biggestWin) stats.biggestWin = winAmount;
+          spawnConfetti();
+          if (soundEnabled) {
+            playTone(1000, 0.1);
+            playTone(1200, 0.1);
+            playTone(1500, 0.15);
+          }
         }
         
         // Fake players cash out randomly
@@ -230,13 +261,13 @@ const bird = {
         fakePlayers = fakePlayers.filter(p => p.life > 0);
         
         // Rising tension sound
-        if (frames % 10 == 0) {
+        if (soundEnabled && frames % 10 == 0) {
           let freq = 200 + (multiplier - 1) * 300;
           playTone(freq, 0.05, 'square');
         }
         
         // Heartbeat at high multipliers
-        if (multiplier > 2.0 && frames - lastHeartbeat > 30) {
+        if (soundEnabled && multiplier > 2.0 && frames - lastHeartbeat > 30) {
           playHeartbeat();
           lastHeartbeat = frames;
         }
@@ -256,9 +287,13 @@ const bird = {
           state.curr = state.gameOver;
           roundHistory.unshift(multiplier);
           if (roundHistory.length > 8) roundHistory.pop();
+          if (!cashedOut) {
+            stats.losses++;
+            stats.totalProfit -= betAmount;
+          }
           spawnParticles(this.x, this.y);
           shakeX = 10; shakeY = 10;
-          SFX.hit.play();
+          if (soundEnabled) SFX.hit.play();
         }
         
         if (this.y < 120) this.y = 120;
@@ -485,12 +520,18 @@ function draw() {
     drawTrajectory();
   }
   
+  drawSpeedLines();
   drawParticles();
   drawBirdTrail();
   drawFakePlayers();
+  updateConfetti();
+  drawConfetti();
+  drawMilestoneFlash();
   bg.draw();
   bird.draw();
   UI.draw();
+  drawStats();
+  drawSoundToggle();
   
   sctx.restore();
 }
@@ -596,6 +637,79 @@ function drawFakePlayers() {
     sctx.textAlign = "left";
     sctx.fillText(`${p.name} cashed $${p.amt} @ ${p.mult}x`, 10, scrn.height - 60 - i * 15);
   });
+}
+
+function drawSpeedLines() {
+  if (state.curr != state.Play) return;
+  let intensity = Math.min((multiplier - 1) * 0.5, 1);
+  sctx.strokeStyle = `rgba(255, 255, 255, ${intensity * 0.3})`;
+  sctx.lineWidth = 2;
+  for (let i = 0; i < 8; i++) {
+    let y = (frames * 3 + i * 60) % scrn.height;
+    let len = 20 + intensity * 40;
+    sctx.beginPath();
+    sctx.moveTo(scrn.width - 20, y);
+    sctx.lineTo(scrn.width - 20 - len, y);
+    sctx.stroke();
+  }
+}
+
+function drawMilestoneFlash() {
+  if (milestoneFlash > 0) {
+    sctx.fillStyle = `rgba(255, 255, 255, ${milestoneFlash / 20})`;
+    sctx.fillRect(0, 0, scrn.width, scrn.height);
+    milestoneFlash--;
+  }
+}
+
+function spawnConfetti() {
+  for (let i = 0; i < 50; i++) {
+    confetti.push({
+      x: scrn.width / 2,
+      y: scrn.height / 2,
+      vx: (Math.random() - 0.5) * 15,
+      vy: -Math.random() * 10 - 5,
+      size: 3 + Math.random() * 5,
+      color: ["#ff3366", "#00ff88", "#ffff00", "#00aaff", "#ff8800"][Math.floor(Math.random() * 5)],
+      life: 100
+    });
+  }
+}
+
+function updateConfetti() {
+  confetti.forEach(c => {
+    c.x += c.vx;
+    c.y += c.vy;
+    c.vy += 0.3;
+    c.life--;
+  });
+  confetti = confetti.filter(c => c.life > 0);
+}
+
+function drawConfetti() {
+  confetti.forEach(c => {
+    sctx.fillStyle = c.color;
+    sctx.globalAlpha = c.life / 100;
+    sctx.fillRect(c.x, c.y, c.size, c.size);
+  });
+  sctx.globalAlpha = 1;
+}
+
+function drawStats() {
+  if (state.curr != state.getReady) return;
+  sctx.font = "10px Orbitron";
+  sctx.fillStyle = "#888888";
+  sctx.textAlign = "left";
+  let winRate = stats.wins + stats.losses > 0 ? ((stats.wins / (stats.wins + stats.losses)) * 100).toFixed(0) : 0;
+  sctx.fillText(`W:${stats.wins} L:${stats.losses} (${winRate}%)`, 10, scrn.height - 30);
+  sctx.fillText(`Best: $${stats.biggestWin.toFixed(0)} | P/L: $${stats.totalProfit.toFixed(0)}`, 10, scrn.height - 15);
+}
+
+function drawSoundToggle() {
+  sctx.font = "16px Orbitron";
+  sctx.fillStyle = soundEnabled ? "#00ff88" : "#ff3366";
+  sctx.textAlign = "right";
+  sctx.fillText(soundEnabled ? "🔊" : "🔇", scrn.width - 10, scrn.height - 10);
 }
 
 function drawTrajectory() {
