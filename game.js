@@ -8,6 +8,7 @@ scrn.addEventListener("click", () => {
       state.curr = state.Play;
       multiplier = 1.00;
       crashPoint = 1.5 + Math.random() * 3;
+      trajectoryPoints = [];
       SFX.start.play();
       break;
     case state.Play:
@@ -20,6 +21,7 @@ scrn.addEventListener("click", () => {
       pipe.pipes = [];
       UI.score.curr = 0;
       SFX.played = false;
+      trajectoryPoints = [];
       break;
   }
 });
@@ -32,6 +34,7 @@ scrn.onkeydown = function keyDown(e) {
         state.curr = state.Play;
         multiplier = 1.00;
         crashPoint = 1.5 + Math.random() * 3;
+        trajectoryPoints = [];
         SFX.start.play();
         break;
       case state.Play:
@@ -44,6 +47,7 @@ scrn.onkeydown = function keyDown(e) {
         pipe.pipes = [];
         UI.score.curr = 0;
         SFX.played = false;
+        trajectoryPoints = [];
         break;
     }
   }
@@ -53,6 +57,7 @@ let frames = 0;
 let dx = 2;
 let multiplier = 1.00;
 let crashPoint = 1.5 + Math.random() * 3; // Random crash between 1.5x and 4.5x
+let trajectoryPoints = [];
 const state = {
   curr: 0,
   getReady: 0,
@@ -133,6 +138,7 @@ const bird = {
         this.rotatation = 0;
         this.y = scrn.height / 2;
         this.frame += frames % 10 == 0 ? 1 : 0;
+        trajectoryPoints = [];
         break;
       case state.Play:
         this.frame += frames % 5 == 0 ? 1 : 0;
@@ -143,6 +149,10 @@ const bird = {
         // Gradually ascend
         this.y -= 0.5;
         this.rotatation = -15;
+        
+        // Store trajectory point
+        trajectoryPoints.push({ x: this.x, y: this.y, mult: multiplier });
+        if (trajectoryPoints.length > 100) trajectoryPoints.shift();
         
         // Check if reached crash point
         if (multiplier >= crashPoint) {
@@ -243,17 +253,28 @@ const UI = {
     sctx.strokeStyle = "#000000";
     switch (state.curr) {
       case state.Play:
+        // Neon glow effect for multiplier
+        sctx.shadowBlur = 20;
+        sctx.shadowColor = "#00ff88";
         sctx.lineWidth = "3";
-        sctx.font = "50px Squada One";
-        sctx.fillText(multiplier.toFixed(2) + "x", scrn.width / 2 - 40, 60);
-        sctx.strokeText(multiplier.toFixed(2) + "x", scrn.width / 2 - 40, 60);
+        sctx.font = "60px Squada One";
+        sctx.fillStyle = "#00ff88";
+        sctx.fillText(multiplier.toFixed(2) + "x", scrn.width / 2 - 50, 70);
+        sctx.strokeStyle = "#003322";
+        sctx.strokeText(multiplier.toFixed(2) + "x", scrn.width / 2 - 50, 70);
+        sctx.shadowBlur = 0;
         break;
       case state.gameOver:
         sctx.lineWidth = "2";
-        sctx.font = "35px Squada One";
+        sctx.font = "30px Squada One";
+        sctx.fillStyle = "#ff3366";
+        sctx.shadowBlur = 15;
+        sctx.shadowColor = "#ff3366";
         let sc = `CRASHED AT: ${multiplier.toFixed(2)}x`;
-        sctx.fillText(sc, scrn.width / 2 - 110, scrn.height / 2 + 50);
-        sctx.strokeText(sc, scrn.width / 2 - 110, scrn.height / 2 + 50);
+        sctx.fillText(sc, scrn.width / 2 - 100, 100);
+        sctx.strokeStyle = "#330011";
+        sctx.strokeText(sc, scrn.width / 2 - 100, 100);
+        sctx.shadowBlur = 0;
         break;
     }
   },
@@ -296,8 +317,18 @@ function update() {
 }
 
 function draw() {
-  sctx.fillStyle = "#30c0df";
+  // Dark casino background
+  let gradient = sctx.createLinearGradient(0, 0, 0, scrn.height);
+  gradient.addColorStop(0, "#0a0e27");
+  gradient.addColorStop(1, "#1a1f3a");
+  sctx.fillStyle = gradient;
   sctx.fillRect(0, 0, scrn.width, scrn.height);
+  
+  // Draw trajectory line
+  if (state.curr == state.Play) {
+    drawTrajectory();
+  }
+  
   bg.draw();
   pipe.draw();
 
@@ -307,3 +338,20 @@ function draw() {
 }
 
 setInterval(gameLoop, 20);
+
+function drawTrajectory() {
+  if (trajectoryPoints.length < 2) return;
+  
+  sctx.beginPath();
+  sctx.strokeStyle = "#00ff88";
+  sctx.lineWidth = 3;
+  sctx.shadowBlur = 10;
+  sctx.shadowColor = "#00ff88";
+  
+  sctx.moveTo(trajectoryPoints[0].x, trajectoryPoints[0].y);
+  for (let i = 1; i < trajectoryPoints.length; i++) {
+    sctx.lineTo(trajectoryPoints[i].x, trajectoryPoints[i].y);
+  }
+  sctx.stroke();
+  sctx.shadowBlur = 0;
+}
