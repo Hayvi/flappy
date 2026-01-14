@@ -6,15 +6,17 @@ scrn.addEventListener("click", () => {
   switch (state.curr) {
     case state.getReady:
       state.curr = state.Play;
+      multiplier = 1.00;
+      crashPoint = 1.5 + Math.random() * 3;
       SFX.start.play();
       break;
     case state.Play:
-      bird.flap();
+      // Cash out - not implemented yet
       break;
     case state.gameOver:
       state.curr = state.getReady;
       bird.speed = 0;
-      bird.y = 100;
+      bird.y = scrn.height / 2;
       pipe.pipes = [];
       UI.score.curr = 0;
       SFX.played = false;
@@ -28,15 +30,17 @@ scrn.onkeydown = function keyDown(e) {
     switch (state.curr) {
       case state.getReady:
         state.curr = state.Play;
+        multiplier = 1.00;
+        crashPoint = 1.5 + Math.random() * 3;
         SFX.start.play();
         break;
       case state.Play:
-        bird.flap();
+        // Cash out - not implemented yet
         break;
       case state.gameOver:
         state.curr = state.getReady;
         bird.speed = 0;
-        bird.y = 100;
+        bird.y = scrn.height / 2;
         pipe.pipes = [];
         UI.score.curr = 0;
         SFX.played = false;
@@ -47,6 +51,8 @@ scrn.onkeydown = function keyDown(e) {
 
 let frames = 0;
 let dx = 2;
+let multiplier = 1.00;
+let crashPoint = 1.5 + Math.random() * 3; // Random crash between 1.5x and 4.5x
 const state = {
   curr: 0,
   getReady: 0,
@@ -91,32 +97,10 @@ const pipe = {
   moved: true,
   pipes: [],
   draw: function () {
-    for (let i = 0; i < this.pipes.length; i++) {
-      let p = this.pipes[i];
-      sctx.drawImage(this.top.sprite, p.x, p.y);
-      sctx.drawImage(
-        this.bot.sprite,
-        p.x,
-        p.y + parseFloat(this.top.sprite.height) + this.gap
-      );
-    }
+    // Don't draw pipes
   },
   update: function () {
-    if (state.curr != state.Play) return;
-    if (frames % 100 == 0) {
-      this.pipes.push({
-        x: parseFloat(scrn.width),
-        y: -210 * Math.min(Math.random() + 1, 1.8),
-      });
-    }
-    this.pipes.forEach((pipe) => {
-      pipe.x -= dx;
-    });
-
-    if (this.pipes.length && this.pipes[0].x < -this.top.sprite.width) {
-      this.pipes.shift();
-      this.moved = true;
-    }
+    // Don't update pipes
   },
 };
 const bird = {
@@ -147,35 +131,37 @@ const bird = {
     switch (state.curr) {
       case state.getReady:
         this.rotatation = 0;
-        this.y += frames % 10 == 0 ? Math.sin(frames * RAD) : 0;
+        this.y = scrn.height / 2;
         this.frame += frames % 10 == 0 ? 1 : 0;
         break;
       case state.Play:
         this.frame += frames % 5 == 0 ? 1 : 0;
-        this.y += this.speed;
-        this.setRotation();
-        this.speed += this.gravity;
-        if (this.y + r >= gnd.y || this.collisioned()) {
+        
+        // Increase multiplier over time
+        multiplier += 0.01;
+        
+        // Gradually ascend
+        this.y -= 0.5;
+        this.rotatation = -15;
+        
+        // Check if reached crash point
+        if (multiplier >= crashPoint) {
           state.curr = state.gameOver;
+          SFX.hit.play();
         }
-
+        
+        // Keep bird in bounds
+        if (this.y < 50) this.y = 50;
+        
         break;
       case state.gameOver:
         this.frame = 1;
-        if (this.y + r < gnd.y) {
-          this.y += this.speed;
-          this.setRotation();
-          this.speed += this.gravity * 2;
-        } else {
-          this.speed = 0;
-          this.y = gnd.y - r;
-          this.rotatation = 90;
-          if (!SFX.played) {
-            SFX.die.play();
-            SFX.played = true;
-          }
+        this.rotatation = 90;
+        this.y += 5;
+        if (this.y > scrn.height - 50 && !SFX.played) {
+          SFX.die.play();
+          SFX.played = true;
         }
-
         break;
     }
     this.frame = this.frame % this.animations.length;
@@ -257,31 +243,17 @@ const UI = {
     sctx.strokeStyle = "#000000";
     switch (state.curr) {
       case state.Play:
-        sctx.lineWidth = "2";
-        sctx.font = "35px Squada One";
-        sctx.fillText(this.score.curr, scrn.width / 2 - 5, 50);
-        sctx.strokeText(this.score.curr, scrn.width / 2 - 5, 50);
+        sctx.lineWidth = "3";
+        sctx.font = "50px Squada One";
+        sctx.fillText(multiplier.toFixed(2) + "x", scrn.width / 2 - 40, 60);
+        sctx.strokeText(multiplier.toFixed(2) + "x", scrn.width / 2 - 40, 60);
         break;
       case state.gameOver:
         sctx.lineWidth = "2";
-        sctx.font = "40px Squada One";
-        let sc = `SCORE :     ${this.score.curr}`;
-        try {
-          this.score.best = Math.max(
-            this.score.curr,
-            localStorage.getItem("best")
-          );
-          localStorage.setItem("best", this.score.best);
-          let bs = `BEST  :     ${this.score.best}`;
-          sctx.fillText(sc, scrn.width / 2 - 80, scrn.height / 2 + 0);
-          sctx.strokeText(sc, scrn.width / 2 - 80, scrn.height / 2 + 0);
-          sctx.fillText(bs, scrn.width / 2 - 80, scrn.height / 2 + 30);
-          sctx.strokeText(bs, scrn.width / 2 - 80, scrn.height / 2 + 30);
-        } catch (e) {
-          sctx.fillText(sc, scrn.width / 2 - 85, scrn.height / 2 + 15);
-          sctx.strokeText(sc, scrn.width / 2 - 85, scrn.height / 2 + 15);
-        }
-
+        sctx.font = "35px Squada One";
+        let sc = `CRASHED AT: ${multiplier.toFixed(2)}x`;
+        sctx.fillText(sc, scrn.width / 2 - 110, scrn.height / 2 + 50);
+        sctx.strokeText(sc, scrn.width / 2 - 110, scrn.height / 2 + 50);
         break;
     }
   },
