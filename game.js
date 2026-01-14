@@ -2,65 +2,97 @@ const RAD = Math.PI / 180;
 const scrn = document.getElementById("canvas");
 const sctx = scrn.getContext("2d");
 scrn.tabIndex = 1;
-scrn.addEventListener("click", () => {
+
+let shakeX = 0, shakeY = 0;
+let countdown = 0;
+let stars = [];
+let birdTrail = [];
+
+// Generate stars
+for (let i = 0; i < 50; i++) {
+  stars.push({
+    x: Math.random() * 288,
+    y: Math.random() * 512,
+    size: Math.random() * 2 + 1,
+    twinkle: Math.random() * Math.PI
+  });
+}
+
+// Audio context for dynamic sounds
+let audioCtx = null;
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playTone(freq, duration, type = 'sine') {
+  if (!audioCtx) return;
+  let osc = audioCtx.createOscillator();
+  let gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+function playHeartbeat() {
+  if (!audioCtx) return;
+  playTone(60, 0.1, 'sine');
+  setTimeout(() => playTone(50, 0.15, 'sine'), 100);
+}
+
+function handleInput() {
+  initAudio();
   switch (state.curr) {
     case state.getReady:
-      state.curr = state.Play;
-      multiplier = 1.00;
-      crashPoint = 1.5 + Math.random() * 3;
+      state.curr = state.Countdown;
+      countdown = 150; // 3 seconds at 50fps
       trajectoryPoints = [];
-      SFX.start.play();
+      particles = [];
+      birdTrail = [];
       break;
     case state.Play:
-      // Cash out - not implemented yet
       break;
     case state.gameOver:
       state.curr = state.getReady;
       bird.speed = 0;
-      bird.y = scrn.height / 2;
+      bird.x = scrn.width / 2;
+      bird.y = scrn.height - 100;
       pipe.pipes = [];
       UI.score.curr = 0;
       SFX.played = false;
       trajectoryPoints = [];
+      particles = [];
+      birdTrail = [];
+      shakeX = 0; shakeY = 0;
       break;
   }
-});
+}
+
+scrn.addEventListener("click", handleInput);
+scrn.addEventListener("touchstart", (e) => { e.preventDefault(); handleInput(); });
 
 scrn.onkeydown = function keyDown(e) {
   if (e.keyCode == 32 || e.keyCode == 87 || e.keyCode == 38) {
-    // Space Key or W key or arrow up
-    switch (state.curr) {
-      case state.getReady:
-        state.curr = state.Play;
-        multiplier = 1.00;
-        crashPoint = 1.5 + Math.random() * 3;
-        trajectoryPoints = [];
-        SFX.start.play();
-        break;
-      case state.Play:
-        // Cash out - not implemented yet
-        break;
-      case state.gameOver:
-        state.curr = state.getReady;
-        bird.speed = 0;
-        bird.y = scrn.height / 2;
-        pipe.pipes = [];
-        UI.score.curr = 0;
-        SFX.played = false;
-        trajectoryPoints = [];
-        break;
-    }
+    handleInput();
   }
 };
 
 let frames = 0;
 let dx = 2;
 let multiplier = 1.00;
-let crashPoint = 1.5 + Math.random() * 3; // Random crash between 1.5x and 4.5x
+let displayMultiplier = 1.00;
+let crashPoint = 1.2 + Math.random() * 1.6;
 let trajectoryPoints = [];
+let particles = [];
+let lastHeartbeat = 0;
 const state = {
   curr: 0,
   getReady: 0,
+  Countdown: 3,
   Play: 1,
   gameOver: 2,
 };
@@ -76,24 +108,14 @@ const gnd = {
   sprite: new Image(),
   x: 0,
   y: 0,
-  draw: function () {
-    this.y = parseFloat(scrn.height - this.sprite.height);
-    sctx.drawImage(this.sprite, this.x, this.y);
-  },
-  update: function () {
-    if (state.curr != state.Play) return;
-    this.x -= dx;
-    this.x = this.x % (this.sprite.width / 2);
-  },
+  draw: function () {},
+  update: function () {},
 };
 const bg = {
   sprite: new Image(),
   x: 0,
   y: 0,
-  draw: function () {
-    y = parseFloat(scrn.height - this.sprite.height);
-    sctx.drawImage(this.sprite, this.x, y);
-  },
+  draw: function () {},
 };
 const pipe = {
   top: { sprite: new Image() },
@@ -101,12 +123,8 @@ const pipe = {
   gap: 85,
   moved: true,
   pipes: [],
-  draw: function () {
-    // Don't draw pipes
-  },
-  update: function () {
-    // Don't update pipes
-  },
+  draw: function () {},
+  update: function () {},
 };
 const bird = {
   animations: [
@@ -132,43 +150,81 @@ const bird = {
     sctx.restore();
   },
   update: function () {
-    let r = parseFloat(this.animations[0].sprite.width) / 2;
     switch (state.curr) {
       case state.getReady:
         this.rotatation = 0;
-        this.y = scrn.height / 2;
+        this.x = scrn.width / 2;
+        this.y = scrn.height - 100;
         this.frame += frames % 10 == 0 ? 1 : 0;
         trajectoryPoints = [];
         break;
+      case state.Countdown:
+        this.rotatation = 0;
+        this.x = scrn.width / 2;
+        this.y = scrn.height - 100;
+        this.frame += frames % 10 == 0 ? 1 : 0;
+        countdown--;
+        // Play beep each second
+        if (countdown == 100 || countdown == 50 || countdown == 0) {
+          playTone(800, 0.1);
+        }
+        if (countdown <= 0) {
+          state.curr = state.Play;
+          multiplier = 1.00;
+          displayMultiplier = 1.00;
+          crashPoint = 1.2 + Math.random() * 1.6;
+          playTone(1200, 0.2);
+          SFX.start.play();
+        }
+        break;
       case state.Play:
         this.frame += frames % 5 == 0 ? 1 : 0;
-        
-        // Increase multiplier over time
         multiplier += 0.01;
+        displayMultiplier += (multiplier - displayMultiplier) * 0.2;
         
-        // Gradually ascend
-        this.y -= 0.5;
-        this.rotatation = -15;
+        // Rising tension sound
+        if (frames % 10 == 0) {
+          let freq = 200 + (multiplier - 1) * 300;
+          playTone(freq, 0.05, 'square');
+        }
         
-        // Store trajectory point
-        trajectoryPoints.push({ x: this.x, y: this.y, mult: multiplier });
-        if (trajectoryPoints.length > 100) trajectoryPoints.shift();
+        // Heartbeat at high multipliers
+        if (multiplier > 2.0 && frames - lastHeartbeat > 30) {
+          playHeartbeat();
+          lastHeartbeat = frames;
+        }
         
-        // Check if reached crash point
+        this.x = scrn.width / 2;
+        this.y = scrn.height - 100 - (multiplier - 1) * 100;
+        this.rotatation = -20;
+        
+        // Bird trail
+        birdTrail.push({ x: this.x, y: this.y, life: 20 });
+        if (birdTrail.length > 15) birdTrail.shift();
+        
+        trajectoryPoints.push({ x: this.x, y: this.y });
+        if (trajectoryPoints.length > 150) trajectoryPoints.shift();
+        
         if (multiplier >= crashPoint) {
           state.curr = state.gameOver;
+          spawnParticles(this.x, this.y);
+          shakeX = 10; shakeY = 10;
           SFX.hit.play();
         }
         
-        // Keep bird in bounds
-        if (this.y < 50) this.y = 50;
-        
+        if (this.y < 120) this.y = 120;
         break;
       case state.gameOver:
         this.frame = 1;
-        this.rotatation = 90;
-        this.y += 5;
-        if (this.y > scrn.height - 50 && !SFX.played) {
+        this.rotatation += 15;
+        updateParticles();
+        shakeX *= 0.9;
+        shakeY *= 0.9;
+        birdTrail.forEach(t => t.life--);
+        birdTrail = birdTrail.filter(t => t.life > 0);
+        if (this.y < scrn.height - 50) {
+          this.y += 8;
+        } else if (!SFX.played) {
           SFX.die.play();
           SFX.played = true;
         }
@@ -176,105 +232,86 @@ const bird = {
     }
     this.frame = this.frame % this.animations.length;
   },
-  flap: function () {
-    if (this.y > 0) {
-      SFX.flap.play();
-      this.speed = -this.thrust;
-    }
-  },
-  setRotation: function () {
-    if (this.speed <= 0) {
-      this.rotatation = Math.max(-25, (-25 * this.speed) / (-1 * this.thrust));
-    } else if (this.speed > 0) {
-      this.rotatation = Math.min(90, (90 * this.speed) / (this.thrust * 2));
-    }
-  },
-  collisioned: function () {
-    if (!pipe.pipes.length) return;
-    let bird = this.animations[0].sprite;
-    let x = pipe.pipes[0].x;
-    let y = pipe.pipes[0].y;
-    let r = bird.height / 4 + bird.width / 4;
-    let roof = y + parseFloat(pipe.top.sprite.height);
-    let floor = roof + pipe.gap;
-    let w = parseFloat(pipe.top.sprite.width);
-    if (this.x + r >= x) {
-      if (this.x + r < x + w) {
-        if (this.y - r <= roof || this.y + r >= floor) {
-          SFX.hit.play();
-          return true;
-        }
-      } else if (pipe.moved) {
-        UI.score.curr++;
-        SFX.score.play();
-        pipe.moved = false;
-      }
-    }
-  },
 };
+
 const UI = {
   getReady: { sprite: new Image() },
   gameOver: { sprite: new Image() },
   tap: [{ sprite: new Image() }, { sprite: new Image() }],
-  score: {
-    curr: 0,
-    best: 0,
-  },
-  x: 0,
-  y: 0,
-  tx: 0,
-  ty: 0,
+  score: { curr: 0, best: 0 },
   frame: 0,
   draw: function () {
     switch (state.curr) {
       case state.getReady:
-        this.y = parseFloat(scrn.height - this.getReady.sprite.height) / 2;
-        this.x = parseFloat(scrn.width - this.getReady.sprite.width) / 2;
-        this.tx = parseFloat(scrn.width - this.tap[0].sprite.width) / 2;
-        this.ty =
-          this.y + this.getReady.sprite.height - this.tap[0].sprite.height;
-        sctx.drawImage(this.getReady.sprite, this.x, this.y);
-        sctx.drawImage(this.tap[this.frame].sprite, this.tx, this.ty);
+        sctx.fillStyle = "#00ff88";
+        sctx.shadowBlur = 20;
+        sctx.shadowColor = "#00ff88";
+        sctx.font = "30px Orbitron";
+        sctx.textAlign = "center";
+        sctx.fillText("TAP TO START", scrn.width / 2, scrn.height / 2);
+        sctx.shadowBlur = 0;
+        sctx.textAlign = "left";
+        break;
+      case state.Countdown:
+        let num = Math.ceil(countdown / 50);
+        let scale = 1 + (countdown % 50) / 50 * 0.5;
+        sctx.font = (80 * scale) + "px Orbitron";
+        sctx.fillStyle = "#ffffff";
+        sctx.shadowBlur = 30;
+        sctx.shadowColor = "#00ff88";
+        sctx.textAlign = "center";
+        sctx.fillText(num > 0 ? num : "GO!", scrn.width / 2, scrn.height / 2);
+        sctx.shadowBlur = 0;
+        sctx.textAlign = "left";
         break;
       case state.gameOver:
-        this.y = parseFloat(scrn.height - this.gameOver.sprite.height) / 2;
-        this.x = parseFloat(scrn.width - this.gameOver.sprite.width) / 2;
-        this.tx = parseFloat(scrn.width - this.tap[0].sprite.width) / 2;
-        this.ty =
-          this.y + this.gameOver.sprite.height - this.tap[0].sprite.height;
-        sctx.drawImage(this.gameOver.sprite, this.x, this.y);
-        sctx.drawImage(this.tap[this.frame].sprite, this.tx, this.ty);
+        sctx.fillStyle = "#ffffff";
+        sctx.shadowBlur = 15;
+        sctx.shadowColor = "#ffffff";
+        sctx.font = "25px Orbitron";
+        sctx.textAlign = "center";
+        sctx.fillText("TAP TO RESTART", scrn.width / 2, scrn.height / 2 + 50);
+        sctx.shadowBlur = 0;
+        sctx.textAlign = "left";
         break;
     }
     this.drawScore();
   },
   drawScore: function () {
-    sctx.fillStyle = "#FFFFFF";
-    sctx.strokeStyle = "#000000";
     switch (state.curr) {
       case state.Play:
-        // Neon glow effect for multiplier
-        sctx.shadowBlur = 20;
-        sctx.shadowColor = "#00ff88";
-        sctx.lineWidth = "3";
-        sctx.font = "60px Squada One";
-        sctx.fillStyle = "#00ff88";
-        sctx.fillText(multiplier.toFixed(2) + "x", scrn.width / 2 - 50, 70);
-        sctx.strokeStyle = "#003322";
-        sctx.strokeText(multiplier.toFixed(2) + "x", scrn.width / 2 - 50, 70);
+        let pulse = 25 + Math.sin(frames * 0.2) * 10;
+        let fontSize = 80 + Math.sin(frames * 0.15) * 8;
+        
+        let color;
+        if (multiplier < 1.5) color = "#00ff88";
+        else if (multiplier < 2.0) color = "#ffff00";
+        else if (multiplier < 2.5) color = "#ff8800";
+        else color = "#ff3366";
+        
+        sctx.shadowBlur = pulse;
+        sctx.shadowColor = color;
+        sctx.lineWidth = 3;
+        sctx.font = fontSize + "px Orbitron";
+        sctx.fillStyle = color;
+        sctx.textAlign = "center";
+        sctx.fillText(displayMultiplier.toFixed(2) + "x", scrn.width / 2, 100);
+        sctx.strokeStyle = "#000";
+        sctx.strokeText(displayMultiplier.toFixed(2) + "x", scrn.width / 2, 100);
         sctx.shadowBlur = 0;
+        sctx.textAlign = "left";
         break;
       case state.gameOver:
-        sctx.lineWidth = "2";
-        sctx.font = "30px Squada One";
+        sctx.font = "50px Orbitron";
         sctx.fillStyle = "#ff3366";
-        sctx.shadowBlur = 15;
+        sctx.shadowBlur = 25;
         sctx.shadowColor = "#ff3366";
-        let sc = `CRASHED AT: ${multiplier.toFixed(2)}x`;
-        sctx.fillText(sc, scrn.width / 2 - 100, 100);
-        sctx.strokeStyle = "#330011";
-        sctx.strokeText(sc, scrn.width / 2 - 100, 100);
+        sctx.textAlign = "center";
+        sctx.fillText("CRASHED!", scrn.width / 2, scrn.height / 2 - 30);
+        sctx.font = "40px Orbitron";
+        sctx.fillText(multiplier.toFixed(2) + "x", scrn.width / 2, scrn.height / 2 + 10);
         sctx.shadowBlur = 0;
+        sctx.textAlign = "left";
         break;
     }
   },
@@ -311,47 +348,188 @@ function gameLoop() {
 
 function update() {
   bird.update();
-  gnd.update();
-  pipe.update();
   UI.update();
 }
 
 function draw() {
-  // Dark casino background
+  sctx.save();
+  sctx.translate(
+    (Math.random() - 0.5) * shakeX,
+    (Math.random() - 0.5) * shakeY
+  );
+  
+  // Dark casino background with stars
   let gradient = sctx.createLinearGradient(0, 0, 0, scrn.height);
   gradient.addColorStop(0, "#0a0e27");
   gradient.addColorStop(1, "#1a1f3a");
   sctx.fillStyle = gradient;
   sctx.fillRect(0, 0, scrn.width, scrn.height);
   
-  // Draw trajectory line
-  if (state.curr == state.Play) {
+  // Draw stars
+  drawStars();
+  
+  // Draw grid
+  drawGrid();
+  
+  // Draw logo
+  drawLogo();
+  
+  if (state.curr == state.Play || state.curr == state.gameOver) {
     drawTrajectory();
   }
   
+  drawParticles();
+  drawBirdTrail();
   bg.draw();
-  pipe.draw();
-
   bird.draw();
-  gnd.draw();
   UI.draw();
+  
+  sctx.restore();
 }
 
 setInterval(gameLoop, 20);
 
+function drawStars() {
+  stars.forEach(s => {
+    let twinkle = 0.5 + Math.sin(frames * 0.05 + s.twinkle) * 0.5;
+    sctx.beginPath();
+    sctx.arc(s.x, s.y, s.size * twinkle, 0, Math.PI * 2);
+    sctx.fillStyle = `rgba(255, 255, 255, ${twinkle * 0.8})`;
+    sctx.fill();
+  });
+}
+
+function drawLogo() {
+  if (state.curr == state.Play || state.curr == state.Countdown) return;
+  
+  // Main title
+  sctx.font = "900 32px Orbitron";
+  sctx.textAlign = "center";
+  sctx.fillStyle = "#ff3366";
+  sctx.shadowBlur = 20;
+  sctx.shadowColor = "#ff3366";
+  sctx.fillText("FLAPPY", scrn.width / 2, 60);
+  
+  sctx.fillStyle = "#00ff88";
+  sctx.shadowColor = "#00ff88";
+  sctx.fillText("AVIATOR", scrn.width / 2, 95);
+  
+  // Subtitle
+  sctx.font = "14px Russo One";
+  sctx.fillStyle = "#ffffff";
+  sctx.shadowBlur = 10;
+  sctx.shadowColor = "#ffffff";
+  sctx.globalAlpha = 0.7;
+  sctx.fillText("CRASH GAME", scrn.width / 2, 115);
+  sctx.globalAlpha = 1;
+  sctx.shadowBlur = 0;
+  sctx.textAlign = "left";
+}
+
+function drawGrid() {
+  sctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+  sctx.lineWidth = 1;
+  for (let x = 0; x < scrn.width; x += 30) {
+    sctx.beginPath();
+    sctx.moveTo(x, 0);
+    sctx.lineTo(x, scrn.height);
+    sctx.stroke();
+  }
+  for (let y = 0; y < scrn.height; y += 30) {
+    sctx.beginPath();
+    sctx.moveTo(0, y);
+    sctx.lineTo(scrn.width, y);
+    sctx.stroke();
+  }
+}
+
+function drawBirdTrail() {
+  birdTrail.forEach((t, i) => {
+    let alpha = t.life / 20;
+    let color;
+    if (multiplier < 1.5) color = `rgba(0, 255, 136, ${alpha * 0.5})`;
+    else if (multiplier < 2.0) color = `rgba(255, 255, 0, ${alpha * 0.5})`;
+    else if (multiplier < 2.5) color = `rgba(255, 136, 0, ${alpha * 0.5})`;
+    else color = `rgba(255, 51, 102, ${alpha * 0.5})`;
+    
+    sctx.beginPath();
+    sctx.arc(t.x, t.y, 10 * alpha, 0, Math.PI * 2);
+    sctx.fillStyle = color;
+    sctx.shadowBlur = 15;
+    sctx.shadowColor = color;
+    sctx.fill();
+  });
+  sctx.shadowBlur = 0;
+}
+
 function drawTrajectory() {
-  if (trajectoryPoints.length < 2) return;
+  if (multiplier <= 1) return;
+  
+  let color;
+  if (multiplier < 1.5) color = "#00ff88";
+  else if (multiplier < 2.0) color = "#ffff00";
+  else if (multiplier < 2.5) color = "#ff8800";
+  else color = "#ff3366";
   
   sctx.beginPath();
-  sctx.strokeStyle = "#00ff88";
-  sctx.lineWidth = 3;
-  sctx.shadowBlur = 10;
-  sctx.shadowColor = "#00ff88";
+  sctx.strokeStyle = color;
+  sctx.lineWidth = 4;
+  sctx.shadowBlur = 15;
+  sctx.shadowColor = color;
   
-  sctx.moveTo(trajectoryPoints[0].x, trajectoryPoints[0].y);
-  for (let i = 1; i < trajectoryPoints.length; i++) {
-    sctx.lineTo(trajectoryPoints[i].x, trajectoryPoints[i].y);
-  }
+  let startX = 50;
+  let startY = scrn.height - 100;
+  sctx.moveTo(startX, startY);
+  
+  let endX = bird.x;
+  let endY = bird.y;
+  let controlX = startX + (endX - startX) * 0.8;
+  let controlY = startY;
+  
+  sctx.quadraticCurveTo(controlX, controlY, endX, endY);
   sctx.stroke();
+  sctx.shadowBlur = 0;
+}
+
+function spawnParticles(x, y) {
+  for (let i = 0; i < 40; i++) {
+    let speed = 2 + Math.random() * 12;
+    let angle = Math.random() * Math.PI * 2;
+    particles.push({
+      x: x,
+      y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      size: 2 + Math.random() * 6,
+      life: 40 + Math.random() * 40,
+      maxLife: 40 + Math.random() * 40,
+      color: ["#ff3366", "#ffaa00", "#ff6600", "#ffff00"][Math.floor(Math.random() * 4)]
+    });
+  }
+}
+
+function updateParticles() {
+  particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.4;
+    p.vx *= 0.98;
+    p.life--;
+  });
+  particles = particles.filter(p => p.life > 0);
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    let alpha = p.life / p.maxLife;
+    sctx.beginPath();
+    sctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+    sctx.fillStyle = p.color;
+    sctx.globalAlpha = alpha;
+    sctx.shadowBlur = 10;
+    sctx.shadowColor = p.color;
+    sctx.fill();
+  });
+  sctx.globalAlpha = 1;
   sctx.shadowBlur = 0;
 }
