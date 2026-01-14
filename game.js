@@ -24,6 +24,7 @@ let lastWin = false;
 let assetsLoaded = 0;
 let totalAssets = 9;
 let profitPopup = { show: false, amount: 0, y: 0, life: 0 };
+let lossFlash = 0;
 
 // Generate stars
 for (let i = 0; i < 50; i++) {
@@ -311,11 +312,11 @@ const bird = {
             stats.losses++;
             stats.streak = 0;
             stats.totalProfit -= betAmount;
+            lossFlash = 20;
           }
           spawnParticles(this.x, this.y);
           shakeX = 10; shakeY = 10;
           if (soundEnabled) SFX.hit.play();
-          // Vibrate on mobile
           if (navigator.vibrate) navigator.vibrate(200);
         }
         
@@ -561,6 +562,7 @@ function draw() {
   updateConfetti();
   drawConfetti();
   drawMilestoneFlash();
+  drawLossFlash();
   drawProfitPopup();
   bg.draw();
   bird.draw();
@@ -768,6 +770,14 @@ function drawProfitPopup() {
   sctx.shadowBlur = 0;
 }
 
+function drawLossFlash() {
+  if (lossFlash > 0) {
+    sctx.fillStyle = `rgba(255, 0, 0, ${lossFlash / 40})`;
+    sctx.fillRect(0, 0, scrn.width, scrn.height);
+    lossFlash--;
+  }
+}
+
 function drawTrajectory() {
   if (multiplier <= 1) return;
   
@@ -777,21 +787,37 @@ function drawTrajectory() {
   else if (multiplier < 2.5) color = "#ff8800";
   else color = "#ff3366";
   
-  sctx.beginPath();
-  sctx.strokeStyle = color;
-  sctx.lineWidth = 4;
-  sctx.shadowBlur = 15;
-  sctx.shadowColor = color;
-  
   let startX = 50;
   let startY = scrn.height - 100;
-  sctx.moveTo(startX, startY);
-  
   let endX = bird.x;
   let endY = bird.y;
   let controlX = startX + (endX - startX) * 0.8;
   let controlY = startY;
   
+  // Outer glow
+  sctx.beginPath();
+  sctx.strokeStyle = color;
+  sctx.lineWidth = 8;
+  sctx.shadowBlur = 25;
+  sctx.shadowColor = color;
+  sctx.globalAlpha = 0.3;
+  sctx.moveTo(startX, startY);
+  sctx.quadraticCurveTo(controlX, controlY, endX, endY);
+  sctx.stroke();
+  
+  // Main line
+  sctx.beginPath();
+  sctx.lineWidth = 4;
+  sctx.globalAlpha = 1;
+  sctx.moveTo(startX, startY);
+  sctx.quadraticCurveTo(controlX, controlY, endX, endY);
+  sctx.stroke();
+  
+  // Inner bright core
+  sctx.beginPath();
+  sctx.strokeStyle = "#ffffff";
+  sctx.lineWidth = 1;
+  sctx.moveTo(startX, startY);
   sctx.quadraticCurveTo(controlX, controlY, endX, endY);
   sctx.stroke();
   sctx.shadowBlur = 0;

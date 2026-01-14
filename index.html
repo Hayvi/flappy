@@ -77,20 +77,19 @@
     <div id="game-container">
         <canvas id="canvas" width="288" height="512"></canvas>
         <div id="controls">
-            <button class="btn btn-bet" onclick="adjustBet(-50)">-50</button>
-            <button class="btn btn-bet" onclick="adjustBet(-10)">-10</button>
-            <button class="btn btn-bet" onclick="adjustBet(10)">+10</button>
-            <button class="btn btn-bet" onclick="adjustBet(50)">+50</button>
+            <button class="btn btn-bet" onclick="setBet(10)">$10</button>
+            <button class="btn btn-bet" onclick="setBet(25)">$25</button>
+            <button class="btn btn-bet" onclick="setBet(50)">$50</button>
+            <button class="btn btn-bet" onclick="setBet(100)">$100</button>
             <button class="btn btn-bet" onclick="maxBet()">MAX</button>
             <button class="btn" id="double-btn" onclick="doubleBet()" style="border-color:#ff8800;color:#ff8800;display:none">2X</button>
         </div>
         <div id="bet-display">BET: $10</div>
         <div id="controls">
-            <button class="btn btn-auto" onclick="adjustAuto(-0.5)">-0.5</button>
-            <button class="btn btn-auto" onclick="adjustAuto(-0.1)">-0.1</button>
+            <button class="btn btn-auto" onclick="setAuto(1.5)">1.5x</button>
+            <button class="btn btn-auto" onclick="setAuto(2.0)">2.0x</button>
+            <button class="btn btn-auto" onclick="setAuto(2.5)">2.5x</button>
             <button class="btn btn-auto" onclick="setAuto(0)">OFF</button>
-            <button class="btn btn-auto" onclick="adjustAuto(0.1)">+0.1</button>
-            <button class="btn btn-auto" onclick="adjustAuto(0.5)">+0.5</button>
         </div>
         <div id="auto-display">AUTO: OFF</div>
         <div id="controls">
@@ -102,6 +101,10 @@
     <script>
         function adjustBet(amt) {
             betAmount = Math.max(10, Math.min(balance, betAmount + amt));
+            updateDisplays();
+        }
+        function setBet(amt) {
+            betAmount = Math.min(balance, amt);
             updateDisplays();
         }
         function maxBet() {
