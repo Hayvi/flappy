@@ -1,23 +1,46 @@
-# Flappy Aviator
+# Flappy Aviator 🐦✈️
 
-A casino-style Aviator game built with JS & HTML Canvas, based on Flappy Bird.
+A casino-style crash game built with JavaScript & HTML Canvas.
 
-## How to Play
+## 🎮 How to Play
 
-1. Click or press Space to start
-2. Watch the bird fly and the multiplier increase
-3. The bird will crash at a random multiplier (1.5x - 4.5x)
-4. Click to play again
+1. Set your **bet amount** (←→ keys)
+2. Set **auto cash out** target (↑↓ keys) or leave at OFF
+3. **Tap/Click** or press **Space** to start
+4. Watch the multiplier rise!
+5. **Tap to cash out** before the bird crashes
+6. If you don't cash out in time, you lose your bet
 
-## Features
+## ✨ Features
 
-- Aviator-style auto-flying gameplay
-- Rising multiplier system
-- Neon casino visual effects
-- Trajectory line tracking
-- Dark theme with glow effects
+- 💰 **Betting System** - Start with $1000 balance
+- 🎯 **Auto Cash Out** - Set target multiplier to auto-win
+- 📊 **Round History** - See last 8 crash multipliers
+- 📈 **Statistics** - Track wins, losses, profit
+- 👥 **Multiplayer Feel** - See other players cashing out
+- 🎨 **Visual Effects**:
+  - Neon glow trajectory
+  - Color-changing multiplier (green → yellow → orange → red)
+  - Speed lines at high multipliers
+  - Screen shake on crash
+  - Confetti on win
+  - Milestone flash at 1.5x, 2x, 2.5x
+- 🔊 **Dynamic Audio**:
+  - Rising tension sound
+  - Heartbeat at high multipliers
+  - Cash out celebration
+  - Countdown beeps
 
-## Run Locally
+## 🎛️ Controls
+
+| Key | Action |
+|-----|--------|
+| Space / W | Start / Cash Out |
+| ← → | Adjust bet amount |
+| ↑ ↓ | Adjust auto cash out |
+| M | Toggle sound |
+
+## 🚀 Run Locally
 
 ```bash
 python3 -m http.server 8000
@@ -25,6 +48,16 @@ python3 -m http.server 8000
 
 Then open `http://localhost:8000`
 
-## Demo
+## 📱 Mobile
 
-![Game Screenshot](https://user-images.githubusercontent.com/44725090/67148880-e7dba280-f2a4-11e9-8dbf-d154842ee0cf.gif)
+Touch-friendly! Tap to start and cash out.
+
+## 🛠️ Tech Stack
+
+- Vanilla JavaScript
+- HTML5 Canvas
+- Web Audio API
+
+## 📜 License
+
+MIT
