@@ -7,6 +7,14 @@ let shakeX = 0, shakeY = 0;
 let countdown = 0;
 let stars = [];
 let birdTrail = [];
+let roundHistory = [];
+let balance = 1000;
+let betAmount = 10;
+let cashedOut = false;
+let winAmount = 0;
+let autoCashOut = 0; // 0 = disabled
+let fakePlayers = [];
+let fakeNames = ["Alex", "Max", "Sam", "Joe", "Kim", "Leo", "Mia", "Zoe"];
 
 // Generate stars
 for (let i = 0; i < 50; i++) {
@@ -48,13 +56,26 @@ function handleInput() {
   initAudio();
   switch (state.curr) {
     case state.getReady:
-      state.curr = state.Countdown;
-      countdown = 150; // 3 seconds at 50fps
-      trajectoryPoints = [];
-      particles = [];
-      birdTrail = [];
+      if (balance >= betAmount) {
+        balance -= betAmount;
+        cashedOut = false;
+        winAmount = 0;
+        state.curr = state.Countdown;
+        countdown = 150;
+        trajectoryPoints = [];
+        particles = [];
+        birdTrail = [];
+      }
       break;
     case state.Play:
+      if (!cashedOut) {
+        cashedOut = true;
+        winAmount = betAmount * multiplier;
+        balance += winAmount;
+        playTone(1000, 0.1);
+        playTone(1200, 0.1);
+        playTone(1500, 0.15);
+      }
       break;
     case state.gameOver:
       state.curr = state.getReady;
@@ -78,6 +99,13 @@ scrn.addEventListener("touchstart", (e) => { e.preventDefault(); handleInput(); 
 scrn.onkeydown = function keyDown(e) {
   if (e.keyCode == 32 || e.keyCode == 87 || e.keyCode == 38) {
     handleInput();
+  }
+  // Bet controls (only in getReady state)
+  if (state.curr == state.getReady) {
+    if (e.keyCode == 37) betAmount = Math.max(10, betAmount - 10); // Left
+    if (e.keyCode == 39) betAmount = Math.min(balance, betAmount + 10); // Right
+    if (e.keyCode == 40) autoCashOut = Math.max(0, autoCashOut - 0.1); // Down
+    if (e.keyCode == 38) autoCashOut = Math.min(5, autoCashOut + 0.1); // Up
   }
 };
 
@@ -182,6 +210,25 @@ const bird = {
         multiplier += 0.01;
         displayMultiplier += (multiplier - displayMultiplier) * 0.2;
         
+        // Auto cash out
+        if (autoCashOut > 0 && multiplier >= autoCashOut && !cashedOut) {
+          cashedOut = true;
+          winAmount = betAmount * multiplier;
+          balance += winAmount;
+          playTone(1000, 0.1);
+          playTone(1200, 0.1);
+          playTone(1500, 0.15);
+        }
+        
+        // Fake players cash out randomly
+        if (Math.random() < 0.02 && fakePlayers.length < 5) {
+          let name = fakeNames[Math.floor(Math.random() * fakeNames.length)];
+          let amt = (10 + Math.random() * 90).toFixed(0);
+          fakePlayers.push({ name, amt, mult: multiplier.toFixed(2), life: 80 });
+        }
+        fakePlayers.forEach(p => p.life--);
+        fakePlayers = fakePlayers.filter(p => p.life > 0);
+        
         // Rising tension sound
         if (frames % 10 == 0) {
           let freq = 200 + (multiplier - 1) * 300;
@@ -207,6 +254,8 @@ const bird = {
         
         if (multiplier >= crashPoint) {
           state.curr = state.gameOver;
+          roundHistory.unshift(multiplier);
+          if (roundHistory.length > 8) roundHistory.pop();
           spawnParticles(this.x, this.y);
           shakeX = 10; shakeY = 10;
           SFX.hit.play();
@@ -241,15 +290,37 @@ const UI = {
   score: { curr: 0, best: 0 },
   frame: 0,
   draw: function () {
+    // Always draw balance
+    sctx.font = "14px Orbitron";
+    sctx.fillStyle = "#ffffff";
+    sctx.textAlign = "right";
+    sctx.fillText("$" + balance.toFixed(0), scrn.width - 10, 20);
+    sctx.textAlign = "left";
+    
     switch (state.curr) {
       case state.getReady:
-        sctx.fillStyle = "#00ff88";
-        sctx.shadowBlur = 20;
-        sctx.shadowColor = "#00ff88";
-        sctx.font = "30px Orbitron";
+        // Bet display
+        sctx.font = "18px Orbitron";
+        sctx.fillStyle = "#ffff00";
+        sctx.shadowBlur = 10;
+        sctx.shadowColor = "#ffff00";
         sctx.textAlign = "center";
-        sctx.fillText("TAP TO START", scrn.width / 2, scrn.height / 2);
+        sctx.fillText("BET: $" + betAmount, scrn.width / 2, scrn.height / 2 - 30);
+        
+        // Auto cash out
+        sctx.font = "14px Orbitron";
+        sctx.fillStyle = autoCashOut > 0 ? "#00ff88" : "#666666";
+        sctx.fillText("AUTO: " + (autoCashOut > 0 ? autoCashOut.toFixed(1) + "x" : "OFF"), scrn.width / 2, scrn.height / 2 - 10);
+        
+        sctx.fillStyle = "#00ff88";
+        sctx.shadowColor = "#00ff88";
+        sctx.font = "22px Orbitron";
+        sctx.fillText("TAP TO START", scrn.width / 2, scrn.height / 2 + 20);
+        
+        sctx.font = "10px Orbitron";
+        sctx.fillStyle = "#888888";
         sctx.shadowBlur = 0;
+        sctx.fillText("← → BET | ↑ ↓ AUTO", scrn.width / 2, scrn.height / 2 + 40);
         sctx.textAlign = "left";
         break;
       case state.Countdown:
@@ -270,7 +341,7 @@ const UI = {
         sctx.shadowColor = "#ffffff";
         sctx.font = "25px Orbitron";
         sctx.textAlign = "center";
-        sctx.fillText("TAP TO RESTART", scrn.width / 2, scrn.height / 2 + 50);
+        sctx.fillText("TAP TO RESTART", scrn.width / 2, scrn.height / 2 + 70);
         sctx.shadowBlur = 0;
         sctx.textAlign = "left";
         break;
@@ -299,17 +370,50 @@ const UI = {
         sctx.strokeStyle = "#000";
         sctx.strokeText(displayMultiplier.toFixed(2) + "x", scrn.width / 2, 100);
         sctx.shadowBlur = 0;
+        
+        // Cash out hint
+        if (!cashedOut) {
+          sctx.font = "16px Orbitron";
+          sctx.fillStyle = "#00ff88";
+          sctx.shadowBlur = 10;
+          sctx.shadowColor = "#00ff88";
+          sctx.fillText("TAP TO CASH OUT", scrn.width / 2, 130);
+          sctx.font = "14px Orbitron";
+          sctx.fillStyle = "#ffff00";
+          sctx.fillText("$" + (betAmount * displayMultiplier).toFixed(2), scrn.width / 2, 150);
+        } else {
+          sctx.font = "20px Orbitron";
+          sctx.fillStyle = "#00ff88";
+          sctx.shadowBlur = 15;
+          sctx.shadowColor = "#00ff88";
+          sctx.fillText("CASHED OUT!", scrn.width / 2, 130);
+          sctx.fillText("+$" + winAmount.toFixed(2), scrn.width / 2, 155);
+        }
+        sctx.shadowBlur = 0;
         sctx.textAlign = "left";
         break;
       case state.gameOver:
-        sctx.font = "50px Orbitron";
-        sctx.fillStyle = "#ff3366";
-        sctx.shadowBlur = 25;
-        sctx.shadowColor = "#ff3366";
-        sctx.textAlign = "center";
-        sctx.fillText("CRASHED!", scrn.width / 2, scrn.height / 2 - 30);
         sctx.font = "40px Orbitron";
-        sctx.fillText(multiplier.toFixed(2) + "x", scrn.width / 2, scrn.height / 2 + 10);
+        sctx.textAlign = "center";
+        if (cashedOut) {
+          sctx.fillStyle = "#00ff88";
+          sctx.shadowBlur = 25;
+          sctx.shadowColor = "#00ff88";
+          sctx.fillText("WIN!", scrn.width / 2, scrn.height / 2 - 30);
+          sctx.font = "30px Orbitron";
+          sctx.fillText("+$" + winAmount.toFixed(2), scrn.width / 2, scrn.height / 2 + 10);
+        } else {
+          sctx.fillStyle = "#ff3366";
+          sctx.shadowBlur = 25;
+          sctx.shadowColor = "#ff3366";
+          sctx.fillText("CRASHED!", scrn.width / 2, scrn.height / 2 - 30);
+          sctx.font = "30px Orbitron";
+          sctx.fillText("-$" + betAmount, scrn.width / 2, scrn.height / 2 + 10);
+        }
+        sctx.font = "25px Orbitron";
+        sctx.fillStyle = "#ffffff";
+        sctx.shadowColor = "#ffffff";
+        sctx.fillText(multiplier.toFixed(2) + "x", scrn.width / 2, scrn.height / 2 + 45);
         sctx.shadowBlur = 0;
         sctx.textAlign = "left";
         break;
@@ -371,6 +475,9 @@ function draw() {
   // Draw grid
   drawGrid();
   
+  // Draw round history
+  drawRoundHistory();
+  
   // Draw logo
   drawLogo();
   
@@ -380,6 +487,7 @@ function draw() {
   
   drawParticles();
   drawBirdTrail();
+  drawFakePlayers();
   bg.draw();
   bird.draw();
   UI.draw();
@@ -443,6 +551,24 @@ function drawGrid() {
   }
 }
 
+function drawRoundHistory() {
+  if (roundHistory.length === 0) return;
+  
+  sctx.font = "12px Orbitron";
+  sctx.textAlign = "center";
+  
+  let startX = 20;
+  roundHistory.forEach((mult, i) => {
+    let color = mult < 1.5 ? "#00ff88" : mult < 2.0 ? "#ffff00" : mult < 2.5 ? "#ff8800" : "#ff3366";
+    sctx.fillStyle = color;
+    sctx.shadowBlur = 5;
+    sctx.shadowColor = color;
+    sctx.fillText(mult.toFixed(2) + "x", startX + i * 34, 20);
+  });
+  sctx.shadowBlur = 0;
+  sctx.textAlign = "left";
+}
+
 function drawBirdTrail() {
   birdTrail.forEach((t, i) => {
     let alpha = t.life / 20;
@@ -460,6 +586,16 @@ function drawBirdTrail() {
     sctx.fill();
   });
   sctx.shadowBlur = 0;
+}
+
+function drawFakePlayers() {
+  sctx.font = "10px Orbitron";
+  fakePlayers.forEach((p, i) => {
+    let alpha = p.life / 80;
+    sctx.fillStyle = `rgba(0, 255, 136, ${alpha})`;
+    sctx.textAlign = "left";
+    sctx.fillText(`${p.name} cashed $${p.amt} @ ${p.mult}x`, 10, scrn.height - 60 - i * 15);
+  });
 }
 
 function drawTrajectory() {
