@@ -21,6 +21,9 @@ let lastMilestone = 0;
 let soundEnabled = true;
 let canDoubleDown = false;
 let lastWin = false;
+let assetsLoaded = 0;
+let totalAssets = 9;
+let profitPopup = { show: false, amount: 0, y: 0, life: 0 };
 
 // Generate stars
 for (let i = 0; i < 50; i++) {
@@ -86,6 +89,7 @@ function handleInput() {
         if (winAmount > stats.biggestWin) stats.biggestWin = winAmount;
         lastWin = true;
         canDoubleDown = true;
+        profitPopup = { show: true, amount: winAmount, y: 160, life: 60 };
         spawnConfetti();
         if (soundEnabled) {
           playTone(1000, 0.1);
@@ -263,6 +267,7 @@ const bird = {
           stats.streak++;
           stats.totalProfit += winAmount - betAmount;
           if (winAmount > stats.biggestWin) stats.biggestWin = winAmount;
+          profitPopup = { show: true, amount: winAmount, y: 160, life: 60 };
           spawnConfetti();
           if (soundEnabled) {
             playTone(1000, 0.1);
@@ -479,6 +484,11 @@ const UI = {
   },
 };
 
+function onAssetLoad() { assetsLoaded++; }
+bird.animations[0].sprite.onload = onAssetLoad;
+bird.animations[1].sprite.onload = onAssetLoad;
+bird.animations[2].sprite.onload = onAssetLoad;
+
 gnd.sprite.src = "img/ground.png";
 bg.sprite.src = "img/BG.png";
 pipe.top.sprite.src = "img/toppipe.png";
@@ -510,6 +520,13 @@ function update() {
 
 function draw() {
   sctx.save();
+  
+  // Loading screen
+  if (drawLoading()) {
+    sctx.restore();
+    return;
+  }
+  
   sctx.translate(
     (Math.random() - 0.5) * shakeX,
     (Math.random() - 0.5) * shakeY
@@ -544,6 +561,7 @@ function draw() {
   updateConfetti();
   drawConfetti();
   drawMilestoneFlash();
+  drawProfitPopup();
   bg.draw();
   bird.draw();
   UI.draw();
@@ -720,6 +738,36 @@ function drawSoundToggle() {
   sctx.fillText(soundEnabled ? "🔊" : "🔇", scrn.width - 10, scrn.height - 10);
 }
 
+function drawLoading() {
+  if (assetsLoaded >= 3) return false;
+  sctx.fillStyle = "#0a0e27";
+  sctx.fillRect(0, 0, scrn.width, scrn.height);
+  sctx.font = "20px Orbitron";
+  sctx.fillStyle = "#00ff88";
+  sctx.textAlign = "center";
+  sctx.fillText("LOADING...", scrn.width / 2, scrn.height / 2);
+  sctx.fillStyle = "#333";
+  sctx.fillRect(50, scrn.height / 2 + 20, scrn.width - 100, 10);
+  sctx.fillStyle = "#00ff88";
+  sctx.fillRect(50, scrn.height / 2 + 20, (scrn.width - 100) * (assetsLoaded / 3), 10);
+  return true;
+}
+
+function drawProfitPopup() {
+  if (!profitPopup.show) return;
+  profitPopup.life--;
+  profitPopup.y -= 1;
+  if (profitPopup.life <= 0) { profitPopup.show = false; return; }
+  let alpha = profitPopup.life / 60;
+  sctx.font = "bold 24px Orbitron";
+  sctx.fillStyle = `rgba(0, 255, 136, ${alpha})`;
+  sctx.shadowBlur = 15;
+  sctx.shadowColor = "#00ff88";
+  sctx.textAlign = "center";
+  sctx.fillText("+$" + profitPopup.amount.toFixed(0), scrn.width / 2, profitPopup.y);
+  sctx.shadowBlur = 0;
+}
+
 function drawTrajectory() {
   if (multiplier <= 1) return;
   
@@ -750,18 +798,36 @@ function drawTrajectory() {
 }
 
 function spawnParticles(x, y) {
-  for (let i = 0; i < 40; i++) {
-    let speed = 2 + Math.random() * 12;
+  // Main explosion
+  for (let i = 0; i < 60; i++) {
+    let speed = 3 + Math.random() * 15;
     let angle = Math.random() * Math.PI * 2;
     particles.push({
       x: x,
       y: y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      size: 2 + Math.random() * 6,
-      life: 40 + Math.random() * 40,
-      maxLife: 40 + Math.random() * 40,
-      color: ["#ff3366", "#ffaa00", "#ff6600", "#ffff00"][Math.floor(Math.random() * 4)]
+      size: 2 + Math.random() * 8,
+      life: 50 + Math.random() * 50,
+      maxLife: 50 + Math.random() * 50,
+      color: ["#ff3366", "#ffaa00", "#ff6600", "#ffff00", "#ff0000"][Math.floor(Math.random() * 5)],
+      type: "circle"
+    });
+  }
+  // Sparks
+  for (let i = 0; i < 20; i++) {
+    let speed = 5 + Math.random() * 10;
+    let angle = Math.random() * Math.PI * 2;
+    particles.push({
+      x: x,
+      y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      size: 1 + Math.random() * 2,
+      life: 20 + Math.random() * 20,
+      maxLife: 20 + Math.random() * 20,
+      color: "#ffffff",
+      type: "spark"
     });
   }
 }
