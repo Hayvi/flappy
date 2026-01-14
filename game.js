@@ -15,6 +15,8 @@ let winAmount = 0;
 let autoCashOut = 0; // 0 = disabled
 let fakePlayers = [];
 let fakeNames = ["Alex", "Max", "Sam", "Joe", "Kim", "Leo", "Mia", "Zoe"];
+let chatBubbles = [];
+let chatMessages = ["Nice! 🔥", "GG!", "HODL!", "RIP 💀", "Let's go!", "Too early!", "Wow!", "😱", "🚀🚀🚀"];
 let speedLines = [];
 let confetti = [];
 let stats = { wins: 0, losses: 0, biggestWin: 0, totalProfit: 0 };
@@ -189,7 +191,18 @@ const bird = {
     sctx.save();
     sctx.translate(this.x, this.y);
     sctx.rotate(this.rotatation * RAD);
+    
+    // Pulsing glow at high multipliers
+    if (state.curr == state.Play && multiplier > 1.5) {
+      let glowIntensity = Math.min((multiplier - 1.5) * 30, 40);
+      let pulse = Math.sin(frames * 0.3) * 10;
+      let color = multiplier < 2.0 ? "#ffff00" : multiplier < 2.5 ? "#ff8800" : "#ff3366";
+      sctx.shadowBlur = glowIntensity + pulse;
+      sctx.shadowColor = color;
+    }
+    
     sctx.drawImage(this.animations[this.frame].sprite, -w / 2, -h / 2);
+    sctx.shadowBlur = 0;
     sctx.restore();
   },
   update: function () {
@@ -259,6 +272,14 @@ const bird = {
         }
         fakePlayers.forEach(p => p.life--);
         fakePlayers = fakePlayers.filter(p => p.life > 0);
+        
+        // Random chat bubbles
+        if (Math.random() < 0.01 && chatBubbles.length < 3) {
+          let msg = chatMessages[Math.floor(Math.random() * chatMessages.length)];
+          chatBubbles.push({ msg, x: 20 + Math.random() * 100, y: 150 + Math.random() * 100, life: 60 });
+        }
+        chatBubbles.forEach(c => c.life--);
+        chatBubbles = chatBubbles.filter(c => c.life > 0);
         
         // Rising tension sound
         if (soundEnabled && frames % 10 == 0) {
@@ -524,6 +545,7 @@ function draw() {
   drawParticles();
   drawBirdTrail();
   drawFakePlayers();
+  drawChatBubbles();
   updateConfetti();
   drawConfetti();
   drawMilestoneFlash();
@@ -636,6 +658,24 @@ function drawFakePlayers() {
     sctx.fillStyle = `rgba(0, 255, 136, ${alpha})`;
     sctx.textAlign = "left";
     sctx.fillText(`${p.name} cashed $${p.amt} @ ${p.mult}x`, 10, scrn.height - 60 - i * 15);
+  });
+}
+
+function drawChatBubbles() {
+  sctx.font = "11px Orbitron";
+  chatBubbles.forEach(c => {
+    let alpha = c.life / 60;
+    sctx.fillStyle = `rgba(30, 35, 60, ${alpha * 0.9})`;
+    sctx.strokeStyle = `rgba(0, 170, 255, ${alpha})`;
+    sctx.lineWidth = 1;
+    let w = sctx.measureText(c.msg).width + 10;
+    sctx.beginPath();
+    sctx.roundRect(c.x, c.y - 12, w, 18, 5);
+    sctx.fill();
+    sctx.stroke();
+    sctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+    sctx.textAlign = "left";
+    sctx.fillText(c.msg, c.x + 5, c.y);
   });
 }
 

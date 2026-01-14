@@ -2,14 +2,122 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Flappy Aviator</title>
     <link rel="stylesheet" href="style.css" > 
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Russo+One&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #0a0e27; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100vh;
+            font-family: 'Orbitron', sans-serif;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #canvas { 
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+        }
+        #controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .btn {
+            background: linear-gradient(180deg, #1a1f3a 0%, #0a0e27 100%);
+            border: 2px solid #00ff88;
+            color: #00ff88;
+            padding: 10px 15px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 50px;
+        }
+        .btn:hover, .btn:active {
+            background: #00ff88;
+            color: #0a0e27;
+            box-shadow: 0 0 15px #00ff88;
+        }
+        .btn-bet { border-color: #ffff00; color: #ffff00; }
+        .btn-bet:hover, .btn-bet:active { background: #ffff00; color: #0a0e27; box-shadow: 0 0 15px #ffff00; }
+        .btn-auto { border-color: #00aaff; color: #00aaff; }
+        .btn-auto:hover, .btn-auto:active { background: #00aaff; color: #0a0e27; box-shadow: 0 0 15px #00aaff; }
+        .btn-sound { border-color: #ff3366; color: #ff3366; }
+        .btn-sound:hover, .btn-sound:active { background: #ff3366; color: #0a0e27; box-shadow: 0 0 15px #ff3366; }
+        #bet-display, #auto-display {
+            color: #fff;
+            font-size: 11px;
+            text-align: center;
+            margin-top: 5px;
+        }
+    </style>
 </head>
 <body>
-    <canvas id="canvas" width="288" height="512"></canvas>
+    <div id="game-container">
+        <canvas id="canvas" width="288" height="512"></canvas>
+        <div id="controls">
+            <button class="btn btn-bet" onclick="adjustBet(-50)">-50</button>
+            <button class="btn btn-bet" onclick="adjustBet(-10)">-10</button>
+            <button class="btn btn-bet" onclick="adjustBet(10)">+10</button>
+            <button class="btn btn-bet" onclick="adjustBet(50)">+50</button>
+            <button class="btn btn-bet" onclick="maxBet()">MAX</button>
+        </div>
+        <div id="bet-display">BET: $10</div>
+        <div id="controls">
+            <button class="btn btn-auto" onclick="adjustAuto(-0.5)">-0.5</button>
+            <button class="btn btn-auto" onclick="adjustAuto(-0.1)">-0.1</button>
+            <button class="btn btn-auto" onclick="setAuto(0)">OFF</button>
+            <button class="btn btn-auto" onclick="adjustAuto(0.1)">+0.1</button>
+            <button class="btn btn-auto" onclick="adjustAuto(0.5)">+0.5</button>
+        </div>
+        <div id="auto-display">AUTO: OFF</div>
+        <div id="controls">
+            <button class="btn btn-sound" onclick="toggleSound()">🔊 SOUND</button>
+        </div>
+    </div>
     <script src="game.js"></script>
+    <script>
+        function adjustBet(amt) {
+            betAmount = Math.max(10, Math.min(balance, betAmount + amt));
+            updateDisplays();
+        }
+        function maxBet() {
+            betAmount = balance;
+            updateDisplays();
+        }
+        function adjustAuto(amt) {
+            autoCashOut = Math.max(0, Math.min(10, autoCashOut + amt));
+            updateDisplays();
+        }
+        function setAuto(val) {
+            autoCashOut = val;
+            updateDisplays();
+        }
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            updateDisplays();
+        }
+        function updateDisplays() {
+            document.getElementById('bet-display').textContent = 'BET: $' + betAmount;
+            document.getElementById('auto-display').textContent = 'AUTO: ' + (autoCashOut > 0 ? autoCashOut.toFixed(1) + 'x' : 'OFF');
+            document.querySelector('.btn-sound').textContent = (soundEnabled ? '🔊' : '🔇') + ' SOUND';
+        }
+        setInterval(updateDisplays, 100);
+    </script>
 </body>
 </html>
