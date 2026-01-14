@@ -25,6 +25,7 @@ let assetsLoaded = 0;
 let totalAssets = 9;
 let profitPopup = { show: false, amount: 0, y: 0, life: 0 };
 let lossFlash = 0;
+let displayBalance = 1000;
 
 // Generate stars
 for (let i = 0; i < 50; i++) {
@@ -306,7 +307,7 @@ const bird = {
         
         if (multiplier >= crashPoint) {
           state.curr = state.gameOver;
-          roundHistory.unshift(multiplier);
+          roundHistory.unshift({ mult: multiplier, won: cashedOut });
           if (roundHistory.length > 8) roundHistory.pop();
           if (!cashedOut) {
             stats.losses++;
@@ -349,11 +350,18 @@ const UI = {
   score: { curr: 0, best: 0 },
   frame: 0,
   draw: function () {
-    // Always draw balance
+    // Animate balance
+    displayBalance += (balance - displayBalance) * 0.1;
+    
+    // Always draw balance with color
     sctx.font = "14px Orbitron";
-    sctx.fillStyle = "#ffffff";
+    let balColor = displayBalance > balance ? "#ff3366" : displayBalance < balance ? "#00ff88" : "#ffffff";
+    sctx.fillStyle = balColor;
+    sctx.shadowBlur = Math.abs(balance - displayBalance) > 1 ? 10 : 0;
+    sctx.shadowColor = balColor;
     sctx.textAlign = "right";
-    sctx.fillText("$" + balance.toFixed(0), scrn.width - 10, 20);
+    sctx.fillText("$" + displayBalance.toFixed(0), scrn.width - 10, 20);
+    sctx.shadowBlur = 0;
     sctx.textAlign = "left";
     
     switch (state.curr) {
@@ -384,13 +392,24 @@ const UI = {
         break;
       case state.Countdown:
         let num = Math.ceil(countdown / 50);
-        let scale = 1 + (countdown % 50) / 50 * 0.5;
-        sctx.font = (80 * scale) + "px Orbitron";
-        sctx.fillStyle = "#ffffff";
-        sctx.shadowBlur = 30;
-        sctx.shadowColor = "#00ff88";
+        let scale = 1 + (countdown % 50) / 50 * 0.8;
+        let alpha = (countdown % 50) / 50;
+        
+        // Pulsing ring
+        sctx.beginPath();
+        sctx.arc(scrn.width / 2, scrn.height / 2 - 10, 60 * scale, 0, Math.PI * 2);
+        sctx.strokeStyle = `rgba(0, 255, 136, ${alpha * 0.5})`;
+        sctx.lineWidth = 4;
+        sctx.stroke();
+        
+        // Number/GO text
+        sctx.font = "bold " + (90 * scale) + "px Orbitron";
+        let countColor = num > 0 ? "#ffffff" : "#00ff88";
+        sctx.fillStyle = countColor;
+        sctx.shadowBlur = 40;
+        sctx.shadowColor = num > 0 ? "#00aaff" : "#00ff88";
         sctx.textAlign = "center";
-        sctx.fillText(num > 0 ? num : "GO!", scrn.width / 2, scrn.height / 2);
+        sctx.fillText(num > 0 ? num : "GO!", scrn.width / 2, scrn.height / 2 + 15);
         sctx.shadowBlur = 0;
         sctx.textAlign = "left";
         break;
@@ -632,11 +651,19 @@ function drawGrid() {
 function drawRoundHistory() {
   if (roundHistory.length === 0) return;
   
-  sctx.font = "12px Orbitron";
+  sctx.font = "11px Orbitron";
   sctx.textAlign = "center";
   
   let startX = 20;
-  roundHistory.forEach((mult, i) => {
+  roundHistory.forEach((r, i) => {
+    let mult = r.mult || r;
+    let won = r.won;
+    // Border color based on win/loss
+    if (won !== undefined) {
+      sctx.strokeStyle = won ? "#00ff88" : "#ff3366";
+      sctx.lineWidth = 2;
+      sctx.strokeRect(startX + i * 34 - 15, 8, 30, 16);
+    }
     let color = mult < 1.5 ? "#00ff88" : mult < 2.0 ? "#ffff00" : mult < 2.5 ? "#ff8800" : "#ff3366";
     sctx.fillStyle = color;
     sctx.shadowBlur = 5;
