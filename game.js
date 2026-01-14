@@ -19,6 +19,8 @@ let stats = { wins: 0, losses: 0, biggestWin: 0, totalProfit: 0, streak: 0 };
 let milestoneFlash = 0;
 let lastMilestone = 0;
 let soundEnabled = true;
+let canDoubleDown = false;
+let lastWin = false;
 
 // Generate stars
 for (let i = 0; i < 50; i++) {
@@ -64,6 +66,7 @@ function handleInput() {
         balance -= betAmount;
         cashedOut = false;
         winAmount = 0;
+        canDoubleDown = false;
         state.curr = state.Countdown;
         countdown = 150;
         trajectoryPoints = [];
@@ -81,6 +84,8 @@ function handleInput() {
         stats.streak++;
         stats.totalProfit += winAmount - betAmount;
         if (winAmount > stats.biggestWin) stats.biggestWin = winAmount;
+        lastWin = true;
+        canDoubleDown = true;
         spawnConfetti();
         if (soundEnabled) {
           playTone(1000, 0.1);
@@ -91,6 +96,10 @@ function handleInput() {
       break;
     case state.gameOver:
       state.curr = state.getReady;
+      if (!cashedOut) {
+        lastWin = false;
+        canDoubleDown = false;
+      }
       bird.speed = 0;
       bird.x = scrn.width / 2;
       bird.y = scrn.height - 100;
@@ -275,8 +284,12 @@ const bird = {
         }
         
         this.x = scrn.width / 2;
-        this.y = scrn.height - 100 - (multiplier - 1) * 100;
-        this.rotatation = -20;
+        let targetY = scrn.height - 100 - (multiplier - 1) * 100;
+        this.y += (targetY - this.y) * 0.1; // Smooth easing
+        
+        // Dynamic rotation based on climb rate
+        let climbRate = Math.min((multiplier - 1) * 15, 35);
+        this.rotatation = -climbRate;
         
         // Bird trail
         birdTrail.push({ x: this.x, y: this.y, life: 20 });

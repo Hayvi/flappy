@@ -82,6 +82,7 @@
             <button class="btn btn-bet" onclick="adjustBet(10)">+10</button>
             <button class="btn btn-bet" onclick="adjustBet(50)">+50</button>
             <button class="btn btn-bet" onclick="maxBet()">MAX</button>
+            <button class="btn" id="double-btn" onclick="doubleBet()" style="border-color:#ff8800;color:#ff8800;display:none">2X</button>
         </div>
         <div id="bet-display">BET: $10</div>
         <div id="controls">
@@ -107,6 +108,13 @@
             betAmount = balance;
             updateDisplays();
         }
+        function doubleBet() {
+            if (canDoubleDown && betAmount * 2 <= balance) {
+                betAmount = betAmount * 2;
+                canDoubleDown = false;
+                updateDisplays();
+            }
+        }
         function adjustAuto(amt) {
             autoCashOut = Math.max(0, Math.min(10, autoCashOut + amt));
             updateDisplays();
@@ -123,6 +131,7 @@
             document.getElementById('bet-display').textContent = 'BET: $' + betAmount;
             document.getElementById('auto-display').textContent = 'AUTO: ' + (autoCashOut > 0 ? autoCashOut.toFixed(1) + 'x' : 'OFF');
             document.querySelector('.btn-sound').textContent = (soundEnabled ? '🔊' : '🔇') + ' SOUND';
+            document.getElementById('double-btn').style.display = canDoubleDown ? 'inline-block' : 'none';
         }
         function toggleFullscreen() {
             if (!document.fullscreenElement) {
